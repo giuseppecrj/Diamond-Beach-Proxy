@@ -7,12 +7,14 @@ import {TestUtils} from "test/utils/TestUtils.sol";
 //interfaces
 import {IDiamondWritableInternal} from "solidstate-solidity/proxy/diamond/writable/IDiamondWritableInternal.sol";
 import {ITown} from "src/proxy/ITown.sol";
+import {IDiamondWritable} from "solidstate-solidity/proxy/diamond/writable/IDiamondWritable.sol";
 
 //libraries
 
 //contracts
 import {Town} from "src/proxy/Town.sol";
 import {TownProxy} from "src/proxy/TownProxy.sol";
+import {MockFacet, IMockFacet} from "test/mocks/MockFacet.sol";
 
 contract ProxyTest is TestUtils {
   Town public town;
@@ -59,5 +61,28 @@ contract ProxyTest is TestUtils {
     town.diamondCut(facetCuts, address(0), "");
 
     proxy1Town.removeChannel("test 1");
+  }
+
+  function test_addDifferentFacet() external {
+    MockFacet mockFacet = new MockFacet();
+
+    address proxy1 = address(new TownProxy(address(town)));
+
+    IMockFacet proxyMockFacet = IMockFacet(proxy1);
+    IDiamondWritable proxyTown = IDiamondWritable(proxy1);
+
+    // This will fail since implementation does not have mockFunction function yet
+    vm.expectRevert();
+    proxyMockFacet.mockFunction();
+
+    // Add mockFunction function to implementation
+    IDiamondWritableInternal.FacetCut[] memory facetCuts = new IDiamondWritableInternal.FacetCut[](1);
+    facetCuts[0].target = address(mockFacet);
+    facetCuts[0].action = IDiamondWritableInternal.FacetCutAction.ADD;
+    facetCuts[0].selectors = new bytes4[](1);
+    facetCuts[0].selectors[0] = mockFacet.mockFunction.selector;
+
+    vm.expectRevert();
+    proxyTown.diamondCut(facetCuts, address(0), "");
   }
 }
